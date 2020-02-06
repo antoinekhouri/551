@@ -28,21 +28,21 @@ def cleanData(dataset):
 	return dataset
 
 class naive_bayes:
-	X = []
-	y = []
-	likelihood_type = []
-	predictor_count = 0
-	prior_zero = 0
-	prior_one = 0
-	instances = 0
-	zero_mean_vals = []
-	zero_std_vals = []
-	one_mean_vals = []
-	one_std_vals = []
-	output_values = []
+	X = [] #List of predictors
+	y = [] #List of outputs
+	likelihood_type = [] #List containing information as to what type of likelihood each predictor should use
+	predictor_count = 0 #Total amount of predictors
+	prior_zero = 0 #Prior of the 0-output
+	prior_one = 0 #Prior of the 1-output
+	instances = 0 #Number of instances in the dataset
+	zero_mean_vals = [] #List of mean values of predictors for 0-outputs
+	zero_std_vals = [] #List of standard deviation values for predictors for 0-outputs
+	one_mean_vals = [] #List of mean values of predictors for 1-outputs
+	one_std_vals = [] #List of standard deviation values for predictors for 1-outputs
+	output_values = [] #Literal binary output values (e.g. "b" and "g" for ionosphere)
 
 	#Compute the prior values of each output
-	def compute_priors(self, data ):
+	def compute_priors(self, data):
 		for i in range(len(data)):
 			if data[i] == self.output_values[0]:
 				self.prior_zero = self.prior_zero + 1
@@ -83,10 +83,10 @@ class naive_bayes:
 				zero_data.append(data[i])
 			elif self.y[i][0] == self.output_values[1]:
 				one_data.append(data[i])
-		zero_mu = np.mean(zero_data)
-		zero_std = np.std(zero_data)
-		one_mu = np.mean(one_data)
-		one_std = np.std(one_data)
+		zero_mu = np.mean(zero_data) #Mean value of predictor for 0-outputs
+		zero_std = np.std(zero_data) #Standard deviation value of predictor for 0-outputs
+		one_mu = np.mean(one_data) #Mean value of predictor for 1-outputs
+		one_std = np.std(one_data) #Standard deviation value of predictor for 1-outputs
 		return(zero_mu,zero_std,one_mu, one_std)
 
 	#Get the gaussian likelihood  of an attribute for 0 and 1 outputs
@@ -100,9 +100,7 @@ class naive_bayes:
 		self.compute_priors(self, self.y)
 		# Set up all the means and std devs
 		for column in self.X.T:
-			# print(column)
 			res = self.calc_mean_and_std(self, column)
-			# print('test2')
 			self.zero_mean_vals.append(res[0])
 			self.zero_std_vals.append(res[1])
 			self.one_mean_vals.append(res[2])
@@ -129,8 +127,6 @@ class naive_bayes:
 		zero_total_likelihood=1
 		one_total_likelihood=1
 		for i in range(self.predictor_count):
-			
-			
 			if self.likelihood_type[i] == 1: #Likelihood type of 1 means gaussian likelihood
 				# Workaround for when the standard deviation of a feature is 0 for one of the outputs
 				if self.zero_std_vals[i] == 0:
