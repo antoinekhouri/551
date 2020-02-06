@@ -119,35 +119,38 @@ class naive_bayes:
 		return result
 
 	# prediction function
-	def predict(self, data_point):
-		evidence = self.calculate_evidence(self, data_point)
+	def predict(self, data_points):
+		# evidence = self.calculate_evidence(self, data_point)
 		#Initialize some variables
-		zero_tmp_likelihood = []
-		one_tmp_likelihood = []
-		zero_total_likelihood=1
-		one_total_likelihood=1
-		for i in range(self.predictor_count):
-			if self.likelihood_type[i] == 1: #Likelihood type of 1 means gaussian likelihood
+		results = []
+		for point in data_points:
+			zero_tmp_likelihood = []
+			one_tmp_likelihood = []
+			zero_total_likelihood=1
+			one_total_likelihood=1
+			for i in range(self.predictor_count):
+				if self.likelihood_type[i] == 1: #Likelihood type of 1 means gaussian likelihood
 				# Workaround for when the standard deviation of a feature is 0 for one of the outputs
-				if self.zero_std_vals[i] == 0:
-					zero_tmp_likelihood.append(1)
-				else:
-					zero_tmp_likelihood.append(self.gaussian_likelihood(self, data_point[i], self.zero_mean_vals[i], self.zero_std_vals[i]))
-				if self.one_std_vals[i] == 0:
-					one_tmp_likelihood.append(1)
-				else:
-					one_tmp_likelihood.append(self.gaussian_likelihood(self, data_point[i], self.one_mean_vals[i], self.one_std_vals[i]))
+					if self.zero_std_vals[i] == 0:
+						zero_tmp_likelihood.append(1)
+					else:
+						zero_tmp_likelihood.append(self.gaussian_likelihood(self, point[i], self.zero_mean_vals[i], self.zero_std_vals[i]))
+					if self.one_std_vals[i] == 0:
+						one_tmp_likelihood.append(1)
+					else:
+						one_tmp_likelihood.append(self.gaussian_likelihood(self, point[i], self.one_mean_vals[i], self.one_std_vals[i]))
 			#Compute the likelihood of our datapoint for both 0 and 1 outputs				
-			zero_total_likelihood = zero_total_likelihood * zero_tmp_likelihood[i]
-			one_total_likelihood = one_total_likelihood * one_tmp_likelihood[i]
+				zero_total_likelihood = zero_total_likelihood * zero_tmp_likelihood[i]
+				one_total_likelihood = one_total_likelihood * one_tmp_likelihood[i]
 		#Compute probably of 0 and 1 outputs using our likelihood
-		p_zero = self.prior_zero * zero_total_likelihood
-		p_one = self.prior_one * one_total_likelihood 
+			p_zero = self.prior_zero * zero_total_likelihood
+			p_one = self.prior_one * one_total_likelihood 
 		#Output the output with higher probability
-		if p_zero>p_one:
-			return self.output_values[0]
-		else: 
-			return self.output_values[1]
+			if p_zero>p_one:
+				results.append(self.output_values[0])
+			else: 
+				results.append(self.output_values[1])
+		return results
 
 if __name__ == "__main__":
 	df1 = cleanData(df1)
@@ -163,12 +166,13 @@ if __name__ == "__main__":
 	#Initialize our model with our data
 	x.init(x, df1, likelihood, out, df1.shape[0], df1.shape[1]-1)
 	x.fit(x)
-	#Note: remove the second predictor from the input array below since the second column
-	# of the dataframe has values of all 0s, it is excluded from the model.
-	test = [1,0,0.36876,-1,-1,-1,-0.07661,1,1,0.95041,0.74597,-0.38710,-1,-0.79313,-0.09677,1,0.48684,0.46502,0.31755,-0.27461,-0.14343,-0.20188,-0.11976,0.06895,0.03021,0.06639,0.03443,-0.01186,-0.00403,-0.01672,-0.00761,0.00108,0.00015,0.00325]
-	#Since the second predictor is always the same for all instances, remove it from the input
-	test.pop(1)
-	res = x.predict(x, test)
+	test_X = [[1,0,0.36876,-1,-1,-1,-0.07661,1,1,0.95041,0.74597,-0.38710,-1,-0.79313,-0.09677,1,0.48684,0.46502,0.31755,-0.27461,-0.14343,-0.20188,-0.11976,0.06895,0.03021,0.06639,0.03443,-0.01186,-0.00403,-0.01672,-0.00761,0.00108,0.00015,0.00325], [1,0,1,-0.08183,1,-0.11326,0.99246,-0.29802,1,-0.33075,0.96662,-0.34281,0.85788,-0.47265,0.91904,-0.48170,0.73084,-0.65224,0.68131,-0.63544,0.82450,-0.78316,0.58829,-0.74785,0.67033,-0.96296,0.48757,-0.85669,0.37941,-0.83893,0.24117,-0.88846,0.29221,-0.89621], [1,0,0.01975,0.00705,0.04090,-0.00846,0.02116,0.01128,0.01128,0.04372,0.00282,0.00141,0.01975,-0.03103,-0.01975,0.06065,-0.04090,0.02680,-0.02398,-0.00423,0.04372,-0.02539,0.01834,0,0,-0.01269,0.01834,-0.01128,0.00564,-0.01551,-0.01693,-0.02398,0.00705,0]]
+	#Since the second predictor is always the same for all instances, remove it from each input point
+	# print(test_X)
+	for item in test_X:
+		# print(item)
+		item.pop(1)
+	res = x.predict(x, test_X)
 	print("Predicted output: ", res)
 	# -------------------------/IONOSPHERE SETUP--------------------------
 
