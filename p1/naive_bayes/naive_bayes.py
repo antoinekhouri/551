@@ -10,7 +10,6 @@ def cleanData(dataset):
 	#1. Eliminate duplicates
 	dataset = dataset.drop_duplicates(subset=None, keep = 'first', inplace = False)
 	#2. Check categorical variables for consistency
-	# print(dataset.Output.value_counts())
 	#3. One hot encoding
 	# dummy = pd.get_dummies(dataset.Output)
 	# dummy.head()
@@ -41,6 +40,7 @@ class naive_bayes:
 	one_mean_vals = []
 	one_std_vals = []
 	output_values = []
+
 	#Compute the prior values of each output
 	def compute_priors(self, data ):
 		for i in range(len(data)):
@@ -52,35 +52,36 @@ class naive_bayes:
 		self.prior_one = self.prior_one/len(data)
 
 	def init(self, dataset, likelihood_type, output_values, instances, predictor_count):
+		#Initialize some variables
 		self.predictor_count = predictor_count
 		self.output_values = output_values
 		self.instances = instances
+
 		# X = feature values, all the columns except the last column
 		self.X = dataset.iloc[:, :-1]
-		# print(self.X)
 
     	# y = target values, last column of the data frame
 		self.y = dataset.iloc[:, -1]
 		self.X = np.c_[np.ones((self.X.shape[0], 1)), self.X] #Transform input into array
 		self.y = self.y[:, np.newaxis] #Transform y into 2D array
 		self.X = np.delete(self.X, 0, 1) #Remove the first column consiting of nothing but 1s
-		# print("Self.X: ")
-		# print(self.X)
 
     	# For every predictor, a different type of likelihood. 0 is bernoulli, 1 is gaussian
     	# and 2 is multinomial
 		for i in range(len(likelihood_type)):
 			self.likelihood_type.append(likelihood_type[i])
 
-	#Get the mean and standard deviation of a set of data
+	#Get the mean and standard deviation of a set of data for each output
 	def calc_mean_and_std(self, data):
-		# print(data)
+
 		zero_data = []
 		one_data = []
+		#For each instance, check if the output is 0 or 1 and separate the data
+		#Appropriately
 		for i in range(len(data)):
-			if self.y[i][0]==output_values[0]:
+			if self.y[i][0]==self.output_values[0]:
 				zero_data.append(data[i])
-			elif self.y[i][0] == output_values[1]:
+			elif self.y[i][0] == self.output_values[1]:
 				one_data.append(data[i])
 		zero_mu = np.mean(zero_data)
 		zero_std = np.std(zero_data)
@@ -88,10 +89,8 @@ class naive_bayes:
 		one_std = np.std(one_data)
 		return(zero_mu,zero_std,one_mu, one_std)
 
-	#Get the gaussian likelihood  of an attribute
+	#Get the gaussian likelihood  of an attribute for 0 and 1 outputs
 	def gaussian_likelihood(self, x, mean, std):
-		# print("x: ", x)
-		# print("std: ", std)
 		var = float(std) ** 2
 		denominator = (2*math.pi*var)**.5
 		numerator = math.exp(-(float(x)-float(mean))**2/(2*var))
@@ -100,15 +99,17 @@ class naive_bayes:
 	def fit(self):
 		self.compute_priors(self, self.y)
 		# Set up all the means and std devs
-		# print(self.X.T) 
 		for column in self.X.T:
+			# print(column)
 			res = self.calc_mean_and_std(self, column)
+			# print('test2')
 			self.zero_mean_vals.append(res[0])
 			self.zero_std_vals.append(res[1])
 			self.one_mean_vals.append(res[2])
 			self.one_std_vals.append(res[3])
 
 	#Compute the evidence
+	#UNUSUED for now as it creates problems and doesn't impact the outcome
 	def calculate_evidence(self, params):
 		result = 1;
 		for i in range(len(params)):
@@ -116,72 +117,63 @@ class naive_bayes:
 			for row in self.X.T:
 				if row[i] == params[i]:
 					count = count + 1
-			# print("Param: ", params[i])
-			# print("Count: ", count)
 			result = result * count/self.instances			
 		return result
 
 	# prediction function
 	def predict(self, data_point):
-		# p_zero = 0
-		# p_one = 0
 		evidence = self.calculate_evidence(self, data_point)
+		#Initialize some variables
 		zero_tmp_likelihood = []
 		one_tmp_likelihood = []
 		zero_total_likelihood=1
 		one_total_likelihood=1
-		# print(self.predictor_count)
 		for i in range(self.predictor_count):
-			# print(i)
-			if self.likelihood_type[i] == 1:
-				#Workaround for when the standard deviation of a feature is 0 for a certain output
+			
+			
+			if self.likelihood_type[i] == 1: #Likelihood type of 1 means gaussian likelihood
+				# Workaround for when the standard deviation of a feature is 0 for one of the outputs
 				if self.zero_std_vals[i] == 0:
-					self.zero_std_vals[i] = self.one_std_vals[i]
+					zero_tmp_likelihood.append(1)
+				else:
+					zero_tmp_likelihood.append(self.gaussian_likelihood(self, data_point[i], self.zero_mean_vals[i], self.zero_std_vals[i]))
 				if self.one_std_vals[i] == 0:
-					self.one_std_vals[i] = self.zero_std_vals[i]
-			#Compute the likelihood of our datapoint for both 0 and 1 outputs
-				zero_tmp_likelihood.append(self.gaussian_likelihood(self, data_point[i], self.zero_mean_vals[i], self.zero_std_vals[i]))
-				one_tmp_likelihood.append(self.gaussian_likelihood(self, data_point[i], self.one_mean_vals[i], self.one_std_vals[i]))
+					one_tmp_likelihood.append(1)
+				else:
+					one_tmp_likelihood.append(self.gaussian_likelihood(self, data_point[i], self.one_mean_vals[i], self.one_std_vals[i]))
+			#Compute the likelihood of our datapoint for both 0 and 1 outputs				
 			zero_total_likelihood = zero_total_likelihood * zero_tmp_likelihood[i]
 			one_total_likelihood = one_total_likelihood * one_tmp_likelihood[i]
+		#Compute probably of 0 and 1 outputs using our likelihood
 		p_zero = self.prior_zero * zero_total_likelihood
 		p_one = self.prior_one * one_total_likelihood 
-		# print("P_ZERO: ", p_zero)
-		# print("P_ONE: ", p_one)
+		#Output the output with higher probability
 		if p_zero>p_one:
-			return output_values[0]
+			return self.output_values[0]
 		else: 
-			return output_values[1]
-
-
-
-
-    # def fit(self):
-
-
+			return self.output_values[1]
 
 if __name__ == "__main__":
 	df1 = cleanData(df1)
 	x = naive_bayes
 	likelihood = [None] * (df1.shape[1]-1)
 
-	# print(df1)
+	# -------------------------INONOSPHERE SETUP------------------------
 	# For Ionosphere, all 34 data features are continuous.
 	for i in range(0,(df1.shape[1]-1)):
 		likelihood[i] = 1
 	out = df1.Output.unique()
 	output_values = [None] * 2
-	output_values[0] = out[0]
-	output_values[1] = out[1]
-	# print(output_values)
 	#Initialize our model with our data
-	x.init(x, df1, likelihood, output_values, df1.shape[0], df1.shape[1]-1)
+	x.init(x, df1, likelihood, out, df1.shape[0], df1.shape[1]-1)
 	x.fit(x)
-
 	#Note: remove the second predictor from the input array below since the second column
 	# of the dataframe has values of all 0s, it is excluded from the model.
-	test = [1,0.58940,-0.60927,0.85430,0.55298,0.81126,0.07285,0.56623,0.16225,0.32781,0.24172,0.50331,0.12252,0.63907,0.19868,0.71854,0.42715,0.54305,0.13907,0.65232,0.27815,0.68874,0.07285,0.51872,0.26653,0.49013,0.27687,0.46216,0.28574,0.43484,0.29324,0.40821,0.29942]
+	test = [1,0,0.36876,-1,-1,-1,-0.07661,1,1,0.95041,0.74597,-0.38710,-1,-0.79313,-0.09677,1,0.48684,0.46502,0.31755,-0.27461,-0.14343,-0.20188,-0.11976,0.06895,0.03021,0.06639,0.03443,-0.01186,-0.00403,-0.01672,-0.00761,0.00108,0.00015,0.00325]
+	#Since the second predictor is always the same for all instances, remove it from the input
+	test.pop(1)
 	res = x.predict(x, test)
 	print("Predicted output: ", res)
+	# -------------------------/IONOSPHERE SETUP--------------------------
 
 
