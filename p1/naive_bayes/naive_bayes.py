@@ -2,24 +2,39 @@ import pandas as pd
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+import sys
 
-# df1 = pd.read_csv("data/ionosphere.data")
-df1 = pd.read_csv("data/adult.data")
+filename=sys.argv[1]
+df1 = pd.read_csv(filename)
 
 #Data cleanup
 def cleanData(dataset):
 	#1. Eliminate duplicates
 	dataset = dataset.drop_duplicates(subset=None, keep = 'first', inplace = False)
-	#2. Check categorical variables for consistency
-	#3. One hot encoding
-	# dummy = pd.get_dummies(dataset.Output)
-	# dummy.head()
-	# dataset = pd.concat([dataset, dummy], axis=1)
-	# dataset.head()
 
-	#4. Eliminate missing values
+	#4. Eliminate missing values (ionosphere has no missing values)
 	dataset = dataset.dropna()
-
+	dataset = dataset[~dataset['Att1'].isin(['?'])]
+	dataset = dataset[~dataset['Att2'].isin(['?'])]
+	dataset = dataset[~dataset['Att3'].isin(['?'])]
+	dataset = dataset[~dataset['Att4'].isin(['?'])]
+	dataset = dataset[~dataset['Att5'].isin(['?'])]
+	dataset = dataset[~dataset['Att6'].isin(['?'])]
+	dataset = dataset[~dataset['Att7'].isin(['?'])]
+	dataset = dataset[~dataset['Att8'].isin(['?'])]
+	dataset = dataset[~dataset['Att9'].isin(['?'])]
+	if "adult" in filename or "hepatitis" in filename:
+		dataset = dataset[~dataset['Att10'].isin(['?'])]
+		dataset = dataset[~dataset['Att11'].isin(['?'])]
+		dataset = dataset[~dataset['Att12'].isin(['?'])]
+		dataset = dataset[~dataset['Att13'].isin(['?'])]
+		dataset = dataset[~dataset['Att14'].isin(['?'])]
+	if "hepatitis" in filename:
+		dataset = dataset[~dataset['Att15'].isin(['?'])]
+		dataset = dataset[~dataset['Att16'].isin(['?'])]
+		dataset = dataset[~dataset['Att17'].isin(['?'])]
+		dataset = dataset[~dataset['Att18'].isin(['?'])]
+		dataset = dataset[~dataset['Att19'].isin(['?'])]
 	# Drop columns where all the values are the same as they offer us no information
 	cols = dataset.select_dtypes([np.number]).columns
 	std = dataset[cols].std()
@@ -56,19 +71,23 @@ class naive_bayes:
 		self.prior_zero = self.prior_zero/len(data)
 		self.prior_one = self.prior_one/len(data)
 
-	def init(self, dataset, likelihood_type, output_values, instances, predictor_count):
+	def init(self, dataset, likelihood_type, output_values, instances, predictor_count, y_pos):
 		#Initialize some variables
 		self.predictor_count = predictor_count
 		self.output_values = output_values
 		self.instances = instances
-
-		# X = feature values, all the columns except the last column
-		self.X = dataset.iloc[:, :-1]
-
-    	# y = target values, last column of the data frame
-		self.y = dataset.iloc[:, -1]
-		self.X = np.c_[np.ones((self.X.shape[0], 1)), self.X] #Transform input into array
+		if y_pos == "last":
+    		# y = target values, last column of the data frame
+			self.y = dataset.iloc[:, -1]
+			# X = feature values, all the columns except the last column
+			self.X = dataset.iloc[:, :-1]
+		elif y_pos == "first":
+			# y = target values, first column of the data frame
+			self.y=dataset.iloc[:, 0]
+			# X = feature values, all the columns except the first column
+			self.X = dataset.iloc[:, 1:]
 		self.y = self.y[:, np.newaxis] #Transform y into 2D array
+		self.X = np.c_[np.ones((self.X.shape[0], 1)), self.X] #Transform input into array
 		self.X = np.delete(self.X, 0, 1) #Remove the first column consiting of nothing but 1s
 
     	# For every predictor, a different type of likelihood. 0 is bernoulli, 1 is gaussian
@@ -85,10 +104,14 @@ class naive_bayes:
 		#Appropriately
 		for i in range(len(data)):
 			if self.y[i][0]==self.output_values[0]:
+				if "hepatitis" in filename:
+					data[i] = float(data[i])
 				zero_data.append(data[i])
 			elif self.y[i][0] == self.output_values[1]:
+				if "hepatitis" in filename:
+					data[i] = float(data[i])
 				one_data.append(data[i])
-		if(isinstance(zero_data[0], int)):
+		if isinstance(zero_data[0], int) or isinstance(zero_data[0], float):
 			zero_mu = np.mean(zero_data) #Mean value of predictor for 0-outputs
 			zero_std = np.std(zero_data) #Standard deviation value of predictor for 0-outputs
 			one_mu = np.mean(one_data) #Mean value of predictor for 1-outputs
@@ -116,13 +139,23 @@ class naive_bayes:
 			total = len(self.zero_data)
 			count = 0
 			for row in self.zero_data:
-				if row[feature_index] == obs:
+				tmp=0
+				if isinstance(row[feature_index], int) or isinstance(row[feature_index], float):
+					tmp = row[feature_index]
+				else:
+					tmp = row[feature_index].strip()
+				if tmp == obs:
 					count = count + 1
 		elif output_type == 1:
 			total = len(self.one_data)
 			count = 0
 			for row in self.one_data:
-				if row[feature_index] == obs:
+				tmp=0
+				if isinstance(row[feature_index], int) or isinstance(row[feature_index], float):
+					tmp = row[feature_index]
+				else:
+					tmp = row[feature_index].strip()
+				if tmp == obs:
 					count = count + 1
 		lh = count/total
 		return lh
@@ -134,13 +167,26 @@ class naive_bayes:
 			total = len(self.zero_data)
 			count = 0
 			for row in self.zero_data:
-				if row[feature_index].strip() == obs:
+				# print("----------")
+				# print(row[feature_index])
+				# print(obs)
+				tmp = 0
+				if isinstance(row[feature_index], int) or isinstance(row[feature_index], float):
+					tmp = row[feature_index]
+				else:
+					tmp = row[feature_index].strip()
+				if tmp == obs:
 					count = count + 1
 		elif output_type == 1:
 			total = len(self.one_data)
 			count = 0
 			for row in self.one_data:
-				if row[feature_index].strip() == obs:
+				tmp=0
+				if isinstance(row[feature_index], int) or isinstance(row[feature_index], float):
+					tmp = row[feature_index]
+				else:
+					tmp = row[feature_index].strip()
+				if tmp == obs:
 					count = count + 1
 		lh = count/total
 		return lh
@@ -219,50 +265,113 @@ class naive_bayes:
 		return results
 
 if __name__ == "__main__":
+
 	df1 = cleanData(df1)
 	x = naive_bayes
 	likelihood = [None] * (df1.shape[1]-1)
 
 	# -------------------------INONOSPHERE SETUP------------------------
-	# For Ionosphere, all 34 data features are continuous.
-	# for i in range(0,(df1.shape[1]-1)):
-	# 	likelihood[i] = 1
-	# out = df1.Output.unique()
-	# #Initialize our model with our data
-	# x.init(x, df1, likelihood, out, df1.shape[0], df1.shape[1]-1)
-	# x.fit(x)
-	# test_X = [[1,0,0.36876,-1,-1,-1,-0.07661,1,1,0.95041,0.74597,-0.38710,-1,-0.79313,-0.09677,1,0.48684,0.46502,0.31755,-0.27461,-0.14343,-0.20188,-0.11976,0.06895,0.03021,0.06639,0.03443,-0.01186,-0.00403,-0.01672,-0.00761,0.00108,0.00015,0.00325], [1,0,1,-0.08183,1,-0.11326,0.99246,-0.29802,1,-0.33075,0.96662,-0.34281,0.85788,-0.47265,0.91904,-0.48170,0.73084,-0.65224,0.68131,-0.63544,0.82450,-0.78316,0.58829,-0.74785,0.67033,-0.96296,0.48757,-0.85669,0.37941,-0.83893,0.24117,-0.88846,0.29221,-0.89621], [1,0,0.01975,0.00705,0.04090,-0.00846,0.02116,0.01128,0.01128,0.04372,0.00282,0.00141,0.01975,-0.03103,-0.01975,0.06065,-0.04090,0.02680,-0.02398,-0.00423,0.04372,-0.02539,0.01834,0,0,-0.01269,0.01834,-0.01128,0.00564,-0.01551,-0.01693,-0.02398,0.00705,0]]
-	# #Since the second predictor is always the same for all instances, remove it from each input point
-	# for item in test_X:
-	# 	item.pop(1)
-	# res = x.predict(x, test_X)
-	# print("Predicted outputs: ", res)
+	if "ionosphere" in filename:
+		#The last column is the output column
+		ypos = "last"
+		# For Ionosphere, all 34 data features are continuous.
+		for i in range(0,(df1.shape[1]-1)):
+			likelihood[i] = 1
+		out = df1.Output.unique()
+		#Initialize our model with our data
+		x.init(x, df1, likelihood, out, df1.shape[0], df1.shape[1]-1, ypos)
+		x.fit(x)
+		test_X = [[1,0,0.36876,-1,-1,-1,-0.07661,1,1,0.95041,0.74597,-0.38710,-1,-0.79313,-0.09677,1,0.48684,0.46502,0.31755,-0.27461,-0.14343,-0.20188,-0.11976,0.06895,0.03021,0.06639,0.03443,-0.01186,-0.00403,-0.01672,-0.00761,0.00108,0.00015,0.00325], [1,0,1,-0.08183,1,-0.11326,0.99246,-0.29802,1,-0.33075,0.96662,-0.34281,0.85788,-0.47265,0.91904,-0.48170,0.73084,-0.65224,0.68131,-0.63544,0.82450,-0.78316,0.58829,-0.74785,0.67033,-0.96296,0.48757,-0.85669,0.37941,-0.83893,0.24117,-0.88846,0.29221,-0.89621], [1,0,0.01975,0.00705,0.04090,-0.00846,0.02116,0.01128,0.01128,0.04372,0.00282,0.00141,0.01975,-0.03103,-0.01975,0.06065,-0.04090,0.02680,-0.02398,-0.00423,0.04372,-0.02539,0.01834,0,0,-0.01269,0.01834,-0.01128,0.00564,-0.01551,-0.01693,-0.02398,0.00705,0]]
+		#Since the second predictor is always the same for all instances, remove it from each input point
+		for item in test_X:
+			item.pop(1)
+		res = x.predict(x, test_X)
+		print("Predicted outputs: ", res)
 	# -------------------------/IONOSPHERE SETUP--------------------------
 
 	# -------------------------ADULT SETUP--------------------------------
-	likelihood[0]=1 #Age; continuous
-	likelihood[1]=2 #Workclass; categorical
-	likelihood[2]=1 #fnlwgt; continuous
-	likelihood[3]=2 #education; categorical
-	likelihood[4]=1 #education-num; continuous
-	likelihood[5]=2 #marital-status; categorical
-	likelihood[6]=2 #occupation; categorical
-	likelihood[7]=2 #relationship; categorical
-	likelihood[8]=2 #race; categorical
-	likelihood[9]=2 #sex; categorical
-	likelihood[10]=1 #capital gain; continuous
-	likelihood[11]=1 #capital loss; continuous
-	likelihood[12]=1 #hours per week; continuous
-	likelihood[13]=2 #native country; categorical 
-	out = df1.Output.unique()
-	x.init(x,df1,likelihood,out,df1.shape[0],df1.shape[1]-1)
-	x.fit(x)
-	input_vector = [[30, "State-gov", 141297, "Bachelors", 13, "Married-civ-spouse", "Prof-specialty", "Husband", "Asian-Pac-Islander", "Male", 0, 0, 40, "India"],[39, "Private", 367260, "HS-grad", 9, "Divorced", "Exec-managerial", "Not-in-family", "White", "Male", 0, 0, 80, "United-States"]]
-	res = x.predict(x, input_vector)
-	print(res)
+	elif "adult" in filename:
+		#The last column is the output column
+		ypos="last"
+		likelihood[0]=1 #Age; continuous
+		likelihood[1]=2 #Workclass; categorical
+		likelihood[2]=1 #fnlwgt; continuous
+		likelihood[3]=2 #education; categorical
+		likelihood[4]=1 #education-num; continuous
+		likelihood[5]=2 #marital-status; categorical
+		likelihood[6]=2 #occupation; categorical
+		likelihood[7]=2 #relationship; categorical
+		likelihood[8]=2 #race; categorical
+		likelihood[9]=0 #sex; bernoulli
+		likelihood[10]=1 #capital gain; continuous
+		likelihood[11]=1 #capital loss; continuous
+		likelihood[12]=1 #hours per week; continuous
+		likelihood[13]=2 #native country; categorical 
+		out = df1.Output.unique()
+		#Initialize our model with our data
+		x.init(x,df1,likelihood,out,df1.shape[0],df1.shape[1]-1, ypos)
+		x.fit(x)
+		input_vector = [[30, "State-gov", 141297, "Bachelors", 13, "Married-civ-spouse", "Prof-specialty", "Husband", "Asian-Pac-Islander", "Male", 0, 0, 40, "India"],[39, "Private", 367260, "HS-grad", 9, "Divorced", "Exec-managerial", "Not-in-family", "White", "Male", 0, 0, 80, "United-States"]]
+		res = x.predict(x, input_vector)
+		print("Predicted outputs: ", res)
+	# ------------------------/ADULT SETUP---------------------------------
 
+	# ------------------------BREAST CANCER SETUP--------------------------
+	elif "breast-cancer" in filename:
+		#The first column is the output column
+		ypos = "first"
+		likelihood[0]=2 #Age; categorical
+		likelihood[1]=2 #Menopause; categorical
+		likelihood[2]=2 #tumor size; categorical 
+		likelihood[3]=2 #inv-nodes; categorical
+		likelihood[4]=0 #node caps; bernoulli
+		likelihood[5]=2 #deg malig; categorical
+		likelihood[6]=0 #breast; bernoulli
+		likelihood[7]=2 #breast-quad; categorical
+		likelihood[8]=0 #irradiat; bernoulli
+		out=df1.Output.unique()
+		# #Initialize our model with our data
+		x.init(x,df1,likelihood,out,df1.shape[0],df1.shape[1]-1, ypos)
+		x.fit(x)
+		input_vector =[["60-69","ge40","15-19","0-2","no",2,"left","left_low","no"],["40-49","premeno","30-34","0-2","yes",3,"right","right_up","no"]]
+		res = x.predict(x, input_vector)
+		print("Predicted outputs: ", res)
+	# ------------------------/BREAST CANCER SETUP-------------------------
 
+	# ------------------------HEPATITIS SETUP------------------------------
 
-
+	elif "hepatitis" in filename:
+		ypos="first"
+		likelihood[0]=1 #Age; Continuous
+		likelihood[1]=0 #Sex; bernoulli
+		likelihood[2]=0 #Steroid; bernoulli
+		likelihood[3]=0 #Antivirals; bernoulli
+		likelihood[4]=0 #Fatigue; bernoulli
+		likelihood[5]=0 #Malaise; bernoulli
+		likelihood[6]=0 #Anoerixa; bernoulli
+		likelihood[7]=0 #Liver big; bernoulli
+		likelihood[8]=0 #Liver firm; bernoulli
+		likelihood[9]=0 #Spleen palpable; bernoulli
+		likelihood[10]=0 #Spiders; bernoulli
+		likelihood[11]=0 #Ascites; bernoulli
+		likelihood[12]=0 #Varices; bernoulli
+		likelihood[13]=1 #Biliburn; continuous
+		likelihood[14]=1 #ALK phosphate; continuous
+		likelihood[15]=1 #SGOT; continuous
+		likelihood[16]=1 #Albumin; continuous
+		likelihood[17]=1 #protime; continuous
+		likelihood[18]=0 #Histology: bernoulli
+		out=df1.Output.unique()
+		x.init(x,df1,likelihood,out,df1.shape[0],df1.shape[1]-1, ypos)
+		x.fit(x)
+		input_vector = [[51,1,1,1,1,1,2,2,2,2,2,2,2,1.00,78,58,4.6,52,1], [57,1,1,2,1,1,2,2,2,2,1,1,2,4.60,82,55,3.3,30,2]]
+		res = x.predict(x,input_vector)
+		output_res = [None] * len(res)
+		for i in range(len(res)):
+			if res[i] == 1:
+				output_res[i] = "Die"
+			elif res[i]==2:
+				output_res[i] = "Live"
+		print(output_res)
 
 
