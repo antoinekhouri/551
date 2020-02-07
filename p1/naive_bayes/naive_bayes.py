@@ -3,7 +3,8 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 
-df1 = pd.read_csv("data/ionosphere.data")
+# df1 = pd.read_csv("data/ionosphere.data")
+df1 = pd.read_csv("data/adult.data")
 
 #Data cleanup
 def cleanData(dataset):
@@ -35,8 +36,12 @@ class naive_bayes:
 	prior_zero = 0 #Prior of the 0-output
 	prior_one = 0 #Prior of the 1-output
 	instances = 0 #Number of instances in the dataset
+	zero_data = [] #List holding all the data with 0-output
+	one_data = [] #List holding all the data with 1-output
+	zero_count_vals = [] #List of counts of values of a predictor for 0-outputs
 	zero_mean_vals = [] #List of mean values of predictors for 0-outputs
 	zero_std_vals = [] #List of standard deviation values for predictors for 0-outputs
+	one_count_vals = [] #List of counts of values of a predictor for 1-outputs
 	one_mean_vals = [] #List of mean values of predictors for 1-outputs
 	one_std_vals = [] #List of standard deviation values for predictors for 1-outputs
 	output_values = [] #Literal binary output values (e.g. "b" and "g" for ionosphere)
@@ -83,11 +88,19 @@ class naive_bayes:
 				zero_data.append(data[i])
 			elif self.y[i][0] == self.output_values[1]:
 				one_data.append(data[i])
-		zero_mu = np.mean(zero_data) #Mean value of predictor for 0-outputs
-		zero_std = np.std(zero_data) #Standard deviation value of predictor for 0-outputs
-		one_mu = np.mean(one_data) #Mean value of predictor for 1-outputs
-		one_std = np.std(one_data) #Standard deviation value of predictor for 1-outputs
-		return(zero_mu,zero_std,one_mu, one_std)
+		if(isinstance(zero_data[0], int)):
+			zero_mu = np.mean(zero_data) #Mean value of predictor for 0-outputs
+			zero_std = np.std(zero_data) #Standard deviation value of predictor for 0-outputs
+			one_mu = np.mean(one_data) #Mean value of predictor for 1-outputs
+			one_std = np.std(one_data) #Standard deviation value of predictor for 1-outputs
+		else:
+			zero_mu = None
+			zero_std = None
+			one_mu = None
+			one_std = None
+		zero_counts = len(zero_data) #Count of amount of times predictor's value appears for 0-outputs
+		one_counts = len(one_data) #Count of amount of times predictor's value appears for 1-outputs
+		return(zero_mu,zero_std,one_mu, one_std, zero_counts, one_counts)
 
 	#Get the gaussian likelihood  of an attribute for 0 and 1 outputs
 	def gaussian_likelihood(self, x, mean, std):
@@ -96,8 +109,51 @@ class naive_bayes:
 		numerator = math.exp(-(float(x)-float(mean))**2/(2*var))
 		return numerator/denominator
 
+	#Get the bernoulli likelihood
+	def bernoulli_likelihood(self, output_type, feature_index, obs):
+		total = 0
+		if output_type == 0:
+			total = len(self.zero_data)
+			count = 0
+			for row in self.zero_data:
+				if row[feature_index] == obs:
+					count = count + 1
+		elif output_type == 1:
+			total = len(self.one_data)
+			count = 0
+			for row in self.one_data:
+				if row[feature_index] == obs:
+					count = count + 1
+		lh = count/total
+		return lh
+
+	#Get the multinomial likelihood
+	def multivar_likelihood(self, output_type, feature_index, obs):
+		total = 0
+		if output_type == 0:
+			total = len(self.zero_data)
+			count = 0
+			for row in self.zero_data:
+				if row[feature_index].strip() == obs:
+					count = count + 1
+		elif output_type == 1:
+			total = len(self.one_data)
+			count = 0
+			for row in self.one_data:
+				if row[feature_index].strip() == obs:
+					count = count + 1
+		lh = count/total
+		return lh
+
 	def fit(self):
 		self.compute_priors(self, self.y)
+		#For each instance, check if the output is 0 or 1 and separate the data
+		#Appropriately
+		for i in range(self.instances):
+			if self.y[i][0]==self.output_values[0]:
+				self.zero_data.append(self.X[i])
+			elif self.y[i][0] == self.output_values[1]:
+				self.one_data.append(self.X[i])
 		# Set up all the means and std devs
 		for column in self.X.T:
 			res = self.calc_mean_and_std(self, column)
@@ -105,6 +161,8 @@ class naive_bayes:
 			self.zero_std_vals.append(res[1])
 			self.one_mean_vals.append(res[2])
 			self.one_std_vals.append(res[3])
+			self.zero_count_vals.append(res[4])
+			self.one_count_vals.append(res[5])
 
 	#Compute the evidence
 	#UNUSUED for now as it creates problems and doesn't impact the outcome
@@ -139,7 +197,15 @@ class naive_bayes:
 						one_tmp_likelihood.append(1)
 					else:
 						one_tmp_likelihood.append(self.gaussian_likelihood(self, point[i], self.one_mean_vals[i], self.one_std_vals[i]))
-			#Compute the likelihood of our datapoint for both 0 and 1 outputs				
+				elif self.likelihood_type[i] == 0:
+					zero_tmp_likelihood.append(self.bernoulli_likelihood(self, 0, i, point[i]))
+					one_tmp_likelihood.append(self.bernoulli_likelihood(self, 1, i, point[i]))
+				elif self.likelihood_type[i] == 2:
+					zero_tmp_likelihood.append(self.multivar_likelihood(self, 0, i, point[i]))
+					one_tmp_likelihood.append(self.multivar_likelihood(self, 1, i, point[i]))
+
+			#Compute the likelihood of our datapoint for both 0 and 1 outputs
+				# print(zero_tmp_likelihood)			
 				zero_total_likelihood = zero_total_likelihood * zero_tmp_likelihood[i]
 				one_total_likelihood = one_total_likelihood * one_tmp_likelihood[i]
 		#Compute probably of 0 and 1 outputs using our likelihood
@@ -159,21 +225,44 @@ if __name__ == "__main__":
 
 	# -------------------------INONOSPHERE SETUP------------------------
 	# For Ionosphere, all 34 data features are continuous.
-	for i in range(0,(df1.shape[1]-1)):
-		likelihood[i] = 1
-	out = df1.Output.unique()
-	output_values = [None] * 2
-	#Initialize our model with our data
-	x.init(x, df1, likelihood, out, df1.shape[0], df1.shape[1]-1)
-	x.fit(x)
-	test_X = [[1,0,0.36876,-1,-1,-1,-0.07661,1,1,0.95041,0.74597,-0.38710,-1,-0.79313,-0.09677,1,0.48684,0.46502,0.31755,-0.27461,-0.14343,-0.20188,-0.11976,0.06895,0.03021,0.06639,0.03443,-0.01186,-0.00403,-0.01672,-0.00761,0.00108,0.00015,0.00325], [1,0,1,-0.08183,1,-0.11326,0.99246,-0.29802,1,-0.33075,0.96662,-0.34281,0.85788,-0.47265,0.91904,-0.48170,0.73084,-0.65224,0.68131,-0.63544,0.82450,-0.78316,0.58829,-0.74785,0.67033,-0.96296,0.48757,-0.85669,0.37941,-0.83893,0.24117,-0.88846,0.29221,-0.89621], [1,0,0.01975,0.00705,0.04090,-0.00846,0.02116,0.01128,0.01128,0.04372,0.00282,0.00141,0.01975,-0.03103,-0.01975,0.06065,-0.04090,0.02680,-0.02398,-0.00423,0.04372,-0.02539,0.01834,0,0,-0.01269,0.01834,-0.01128,0.00564,-0.01551,-0.01693,-0.02398,0.00705,0]]
-	#Since the second predictor is always the same for all instances, remove it from each input point
-	# print(test_X)
-	for item in test_X:
-		# print(item)
-		item.pop(1)
-	res = x.predict(x, test_X)
-	print("Predicted output: ", res)
+	# for i in range(0,(df1.shape[1]-1)):
+	# 	likelihood[i] = 1
+	# out = df1.Output.unique()
+	# #Initialize our model with our data
+	# x.init(x, df1, likelihood, out, df1.shape[0], df1.shape[1]-1)
+	# x.fit(x)
+	# test_X = [[1,0,0.36876,-1,-1,-1,-0.07661,1,1,0.95041,0.74597,-0.38710,-1,-0.79313,-0.09677,1,0.48684,0.46502,0.31755,-0.27461,-0.14343,-0.20188,-0.11976,0.06895,0.03021,0.06639,0.03443,-0.01186,-0.00403,-0.01672,-0.00761,0.00108,0.00015,0.00325], [1,0,1,-0.08183,1,-0.11326,0.99246,-0.29802,1,-0.33075,0.96662,-0.34281,0.85788,-0.47265,0.91904,-0.48170,0.73084,-0.65224,0.68131,-0.63544,0.82450,-0.78316,0.58829,-0.74785,0.67033,-0.96296,0.48757,-0.85669,0.37941,-0.83893,0.24117,-0.88846,0.29221,-0.89621], [1,0,0.01975,0.00705,0.04090,-0.00846,0.02116,0.01128,0.01128,0.04372,0.00282,0.00141,0.01975,-0.03103,-0.01975,0.06065,-0.04090,0.02680,-0.02398,-0.00423,0.04372,-0.02539,0.01834,0,0,-0.01269,0.01834,-0.01128,0.00564,-0.01551,-0.01693,-0.02398,0.00705,0]]
+	# #Since the second predictor is always the same for all instances, remove it from each input point
+	# for item in test_X:
+	# 	item.pop(1)
+	# res = x.predict(x, test_X)
+	# print("Predicted outputs: ", res)
 	# -------------------------/IONOSPHERE SETUP--------------------------
+
+	# -------------------------ADULT SETUP--------------------------------
+	likelihood[0]=1 #Age; continuous
+	likelihood[1]=2 #Workclass; categorical
+	likelihood[2]=1 #fnlwgt; continuous
+	likelihood[3]=2 #education; categorical
+	likelihood[4]=1 #education-num; continuous
+	likelihood[5]=2 #marital-status; categorical
+	likelihood[6]=2 #occupation; categorical
+	likelihood[7]=2 #relationship; categorical
+	likelihood[8]=2 #race; categorical
+	likelihood[9]=2 #sex; categorical
+	likelihood[10]=1 #capital gain; continuous
+	likelihood[11]=1 #capital loss; continuous
+	likelihood[12]=1 #hours per week; continuous
+	likelihood[13]=2 #native country; categorical 
+	out = df1.Output.unique()
+	x.init(x,df1,likelihood,out,df1.shape[0],df1.shape[1]-1)
+	x.fit(x)
+	input_vector = [[30, "State-gov", 141297, "Bachelors", 13, "Married-civ-spouse", "Prof-specialty", "Husband", "Asian-Pac-Islander", "Male", 0, 0, 40, "India"],[39, "Private", 367260, "HS-grad", 9, "Divorced", "Exec-managerial", "Not-in-family", "White", "Male", 0, 0, 80, "United-States"]]
+	res = x.predict(x, input_vector)
+	print(res)
+
+
+
+
 
 
