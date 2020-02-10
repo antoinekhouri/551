@@ -314,9 +314,7 @@ class naive_bayes:
 			while j<fold_length:
 				for l in range(self.predictor_count):
 					data_folds[i][j].append(tmp_X[j+i*fold_length][l])
-					# print(data_folds)
 				j = j + 1
-					# print("FUCK YOU")
 				if j<fold_length: 	
 					data_folds[i].append([])
 			data_folds.append([[]])
