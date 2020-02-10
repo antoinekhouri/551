@@ -157,6 +157,8 @@ class naive_bayes:
 
 	#Get the bernoulli likelihood
 	def bernoulli_likelihood(self, output_type, feature_index, obs):
+		if(isinstance(obs, str)):
+			obs = obs.strip()
 		total = 0
 		if output_type == 0:
 			total = len(self.zero_data)
@@ -188,14 +190,13 @@ class naive_bayes:
 
 	#Get the multinomial likelihood
 	def multivar_likelihood(self, output_type, feature_index, obs):
+		if(isinstance(obs, str)):
+			obs = obs.strip()
 		total = 0
 		if output_type == 0:
 			total = len(self.zero_data)
 			count = 0
 			for row in self.zero_data:
-				# print("----------")
-				# print(row[feature_index])
-				# print(obs)
 				tmp = 0
 				if isinstance(row[feature_index], int) or isinstance(row[feature_index], float):
 					tmp = row[feature_index]
@@ -282,7 +283,6 @@ class naive_bayes:
 					one_tmp_likelihood.append(self.multivar_likelihood(self, 1, i, point[i]))
 
 			#Compute the likelihood of our datapoint for both 0 and 1 outputs
-				# print(zero_tmp_likelihood)			
 				zero_total_likelihood = zero_total_likelihood * zero_tmp_likelihood[i]
 				one_total_likelihood = one_total_likelihood * one_tmp_likelihood[i]
 		#Compute probably of 0 and 1 outputs using our likelihood
@@ -290,6 +290,7 @@ class naive_bayes:
 			p_one = self.prior_one * one_total_likelihood 
 		#Output the output with higher probability
 			if p_zero>p_one:
+				
 				results.append(self.output_values[0])
 			else: 
 				results.append(self.output_values[1])
@@ -336,7 +337,6 @@ class naive_bayes:
 			train_y = []
 			test_y = []
 			for m in range(k):
-				# print("m: ", m)
 				if i == m:
 					test_data = data_folds[i]
 					for l in range(fold_length):
@@ -344,13 +344,12 @@ class naive_bayes:
 				else:
 					for l in range(fold_length):
 						train_data.append(data_folds[i][l])
-						if expected_results[i*fold_length+m]==self.output_values[0]:
+						if expected_results[i*fold_length+l]==self.output_values[0]:
 							self.zero_data.append(data_folds[i][l])
-						elif expected_results[i*fold_length+m] == self.output_values[1]:
+						elif expected_results[i*fold_length+l] == self.output_values[1]:
 							self.one_data.append(data_folds[i][l])
-						train_y.append(expected_results[i*fold_length+m])
+						train_y.append(expected_results[i*fold_length+l])
 			self.compute_priors(self, train_y)
-			# print(train_data)
 		# Set up all the means and std devs
 			for column in list(map(list, zip(*train_data))):
 				res = self.calc_mean_and_std(self, column, train_y, 1)
@@ -369,6 +368,10 @@ class naive_bayes:
 			if results[i] == expected_results[i]:
 				success = success + 1
 		acc = success/len(results)
+		# print("Expected ----------------------------------------------")
+		# print(expected_results)
+		# print("Results ----------------------------------------------")
+		# print(results)
 		print("Accuracy rate: ", acc*100, "%")
 		return acc
 
